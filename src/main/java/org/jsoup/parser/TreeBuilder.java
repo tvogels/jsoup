@@ -27,6 +27,8 @@ abstract class TreeBuilder {
         Validate.notNull(baseUri, "BaseURI must not be null");
 
         doc = new Document(baseUri);
+        doc.startPosition = 0;
+        doc.endPosition = input.length();
         reader = new CharacterReader(input);
         this.errors = errors;
         tokeniser = new Tokeniser(reader, errors);

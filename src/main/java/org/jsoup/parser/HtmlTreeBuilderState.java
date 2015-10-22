@@ -141,7 +141,7 @@ enum HtmlTreeBuilderState {
                     Token.EndTag end = t.asEndTag();
                     name = end.name();
                     if (name.equals("head")) {
-                        tb.pop();
+                        tb.pop(end.endPosition);
                         tb.transition(AfterHead);
                     } else if (StringUtil.in(name, "body", "html", "br")) {
                         return anythingElse(t, tb);
@@ -168,7 +168,7 @@ enum HtmlTreeBuilderState {
             } else if (t.isStartTag() && t.asStartTag().name().equals("html")) {
                 return tb.process(t, InBody);
             } else if (t.isEndTag() && t.asEndTag().name().equals("noscript")) {
-                tb.pop();
+                tb.pop(t.asEndTag().endPosition);
                 tb.transition(InHead);
             } else if (isWhitespace(t) || t.isComment() || (t.isStartTag() && StringUtil.in(t.asStartTag().name(),
                     "basefont", "bgsound", "link", "meta", "noframes", "style"))) {
@@ -363,7 +363,7 @@ enum HtmlTreeBuilderState {
                         }
                         if (StringUtil.inSorted(tb.currentElement().nodeName(), Constants.Headings)) {
                             tb.error(this);
-                            tb.pop();
+                            tb.pop(t.endPosition);
                         }
                         tb.insert(startTag);
                     } else if (StringUtil.inSorted(name, Constants.InBodyStartPreListing)) {
@@ -530,7 +530,7 @@ enum HtmlTreeBuilderState {
                             tb.generateImpliedEndTags();
                             if (!tb.currentElement().nodeName().equals("ruby")) {
                                 tb.error(this);
-                                tb.popStackToBefore("ruby"); // i.e. close up to but not include name
+                                tb.popStackToBefore("ruby",t.endPosition); // i.e. close up to but not include name
                             }
                             tb.insert(startTag);
                         }
@@ -590,7 +590,7 @@ enum HtmlTreeBuilderState {
                                 }
                             }
                             if (furthestBlock == null) {
-                                tb.popStackToClose(formatEl.nodeName());
+                                tb.popStackToClose(formatEl.nodeName(),endTag.endPosition);
                                 tb.removeFromActiveFormattingElements(formatEl);
                                 return true;
                             }
@@ -655,7 +655,7 @@ enum HtmlTreeBuilderState {
                             tb.generateImpliedEndTags();
                             if (!tb.currentElement().nodeName().equals(name))
                                 tb.error(this);
-                            tb.popStackToClose(name);
+                            tb.popStackToClose(name,endTag.endPosition);
                         }
                     } else if (name.equals("span")) {
                         // same as final fall through, but saves short circuit
@@ -668,17 +668,19 @@ enum HtmlTreeBuilderState {
                             tb.generateImpliedEndTags(name);
                             if (!tb.currentElement().nodeName().equals(name))
                                 tb.error(this);
-                            tb.popStackToClose(name);
+                            tb.popStackToClose(name,endTag.endPosition);
                         }
                     } else if (name.equals("body")) {
                         if (!tb.inScope("body")) {
                             tb.error(this);
                             return false;
                         } else {
+                        	tb.stack.get(tb.stack.size()-1).endPosition = t.endPosition;
                             // todo: error if stack contains something not dd, dt, li, optgroup, option, p, rp, rt, tbody, td, tfoot, th, thead, tr, body, html
                             tb.transition(AfterBody);
                         }
                     } else if (name.equals("html")) {
+                    	tb.stack.get(tb.stack.size()-1).endPosition = t.endPosition;
                         boolean notIgnored = tb.processEndTag("body");
                         if (notIgnored)
                             return tb.process(endTag);
@@ -704,7 +706,7 @@ enum HtmlTreeBuilderState {
                             tb.generateImpliedEndTags(name);
                             if (!tb.currentElement().nodeName().equals(name))
                                 tb.error(this);
-                            tb.popStackToClose(name);
+                            tb.popStackToClose(name,endTag.endPosition);
                         }
                     } else if (StringUtil.inSorted(name, Constants.DdDt)) {
                         if (!tb.inScope(name)) {
@@ -714,7 +716,7 @@ enum HtmlTreeBuilderState {
                             tb.generateImpliedEndTags(name);
                             if (!tb.currentElement().nodeName().equals(name))
                                 tb.error(this);
-                            tb.popStackToClose(name);
+                            tb.popStackToClose(name,endTag.endPosition);
                         }
                     } else if (StringUtil.inSorted(name, Constants.Headings)) {
                         if (!tb.inScope(Constants.Headings)) {
@@ -724,7 +726,7 @@ enum HtmlTreeBuilderState {
                             tb.generateImpliedEndTags(name);
                             if (!tb.currentElement().nodeName().equals(name))
                                 tb.error(this);
-                            tb.popStackToClose(Constants.Headings);
+                            tb.popStackToClose(endTag.endPosition, Constants.Headings);
                         }
                     } else if (name.equals("sarcasm")) {
                         // *sigh*
@@ -738,7 +740,7 @@ enum HtmlTreeBuilderState {
                             tb.generateImpliedEndTags();
                             if (!tb.currentElement().nodeName().equals(name))
                                 tb.error(this);
-                            tb.popStackToClose(name);
+                            tb.popStackToClose(name,endTag.endPosition);
                             tb.clearFormattingElementsToLastMarker();
                         }
                     } else if (name.equals("br")) {
@@ -767,7 +769,7 @@ enum HtmlTreeBuilderState {
                     tb.generateImpliedEndTags(name);
                     if (!name.equals(tb.currentElement().nodeName()))
                         tb.error(this);
-                    tb.popStackToClose(name);
+                    tb.popStackToClose(name,t.asEndTag().endPosition);
                     break;
                 } else {
                     if (tb.isSpecial(node)) {
@@ -787,12 +789,12 @@ enum HtmlTreeBuilderState {
             } else if (t.isEOF()) {
                 tb.error(this);
                 // if current node is script: already started
-                tb.pop();
+                tb.pop(t.endPosition);
                 tb.transition(tb.originalState());
                 return tb.process(t);
             } else if (t.isEndTag()) {
                 // if: An end tag whose tag name is "script" -- scripting nesting level, if evaluating scripts
-                tb.pop();
+                tb.pop(t.endPosition);
                 tb.transition(tb.originalState());
             }
             return true;
@@ -866,7 +868,7 @@ enum HtmlTreeBuilderState {
                         tb.error(this);
                         return false;
                     } else {
-                        tb.popStackToClose("table");
+                        tb.popStackToClose("table",endTag.endPosition);
                     }
                     tb.resetInsertionMode();
                 } else if (StringUtil.in(name,
@@ -947,7 +949,7 @@ enum HtmlTreeBuilderState {
                     tb.generateImpliedEndTags();
                     if (!tb.currentElement().nodeName().equals("caption"))
                         tb.error(this);
-                    tb.popStackToClose("caption");
+                    tb.popStackToClose("caption",endTag.endPosition);
                     tb.clearFormattingElementsToLastMarker();
                     tb.transition(InTable);
                 }
@@ -1001,7 +1003,7 @@ enum HtmlTreeBuilderState {
                             tb.error(this);
                             return false;
                         } else {
-                            tb.pop();
+                            tb.pop(endTag.endPosition);
                             tb.transition(InTable);
                         }
                     } else
@@ -1053,7 +1055,7 @@ enum HtmlTreeBuilderState {
                             return false;
                         } else {
                             tb.clearStackToTableBodyContext();
-                            tb.pop();
+                            tb.pop(endTag.endPosition);
                             tb.transition(InTable);
                         }
                     } else if (name.equals("table")) {
@@ -1111,7 +1113,7 @@ enum HtmlTreeBuilderState {
                         return false;
                     }
                     tb.clearStackToTableRowContext();
-                    tb.pop(); // tr
+                    tb.pop(endTag.endPosition); // tr
                     tb.transition(InTableBody);
                 } else if (name.equals("table")) {
                     return handleMissingTr(t, tb);
@@ -1161,7 +1163,7 @@ enum HtmlTreeBuilderState {
                     tb.generateImpliedEndTags();
                     if (!tb.currentElement().nodeName().equals(name))
                         tb.error(this);
-                    tb.popStackToClose(name);
+                    tb.popStackToClose(name,endTag.endPosition);
                     tb.clearFormattingElementsToLastMarker();
                     tb.transition(InRow);
                 } else if (StringUtil.in(name, "body", "caption", "col", "colgroup", "html")) {
@@ -1257,12 +1259,12 @@ enum HtmlTreeBuilderState {
                         if (tb.currentElement().nodeName().equals("option") && tb.aboveOnStack(tb.currentElement()) != null && tb.aboveOnStack(tb.currentElement()).nodeName().equals("optgroup"))
                             tb.processEndTag("option");
                         if (tb.currentElement().nodeName().equals("optgroup"))
-                            tb.pop();
+                            tb.pop(end.endPosition);
                         else
                             tb.error(this);
                     } else if (name.equals("option")) {
                         if (tb.currentElement().nodeName().equals("option"))
-                            tb.pop();
+                            tb.pop(end.endPosition);
                         else
                             tb.error(this);
                     } else if (name.equals("select")) {
@@ -1270,7 +1272,7 @@ enum HtmlTreeBuilderState {
                             tb.error(this);
                             return false;
                         } else {
-                            tb.popStackToClose(name);
+                            tb.popStackToClose(name,end.endPosition);
                             tb.resetInsertionMode();
                         }
                     } else
@@ -1321,6 +1323,8 @@ enum HtmlTreeBuilderState {
             } else if (t.isStartTag() && t.asStartTag().name().equals("html")) {
                 return tb.process(t, InBody);
             } else if (t.isEndTag() && t.asEndTag().name().equals("html")) {
+            	// is this safe?  - Thijs Vogels
+            	tb.stack.get(0).endPosition = t.endPosition;
                 if (tb.isFragmentParsing()) {
                     tb.error(this);
                     return false;
@@ -1366,7 +1370,7 @@ enum HtmlTreeBuilderState {
                     tb.error(this);
                     return false;
                 } else {
-                    tb.pop();
+                    tb.pop(t.endPosition);
                     if (!tb.isFragmentParsing() && !tb.currentElement().nodeName().equals("frameset")) {
                         tb.transition(AfterFrameset);
                     }

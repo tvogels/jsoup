@@ -10,6 +10,9 @@ import org.jsoup.nodes.BooleanAttribute;
  */
 abstract class Token {
     TokenType type;
+    
+    public int startPosition = -1;
+    public int endPosition = -1;
 
     private Token() {
     }

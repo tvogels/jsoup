@@ -32,6 +32,8 @@ final class Tokeniser {
     Token.Character charPending = new Token.Character();
     Token.Doctype doctypePending = new Token.Doctype(); // doctype building up
     Token.Comment commentPending = new Token.Comment(); // comment building up
+    int charPosTracker = -1;
+    int prevEnd = 0;
     private String lastStartTag; // the last start tag emitted, to test appropriate end tag
     private boolean selfClosingFlagAcknowledged = true;
 
@@ -54,13 +56,18 @@ final class Tokeniser {
             String str = charsBuilder.toString();
             charsBuilder.delete(0, charsBuilder.length());
             charsString = null;
+            charPending.startPosition = prevEnd;
+            charPending.endPosition = prevEnd = charPosTracker;
             return charPending.data(str);
         } else if (charsString != null) {
             Token token = charPending.data(charsString);
+            token.startPosition = prevEnd;
+            token.endPosition = prevEnd = charPosTracker;
             charsString = null;
             return token;
         } else {
             isEmitPending = false;
+            prevEnd = emitPending.endPosition;
             return emitPending;
         }
     }
@@ -87,13 +94,16 @@ final class Tokeniser {
         // buffer strings up until last string token found, to emit only one token for a run of character refs etc.
         // does not set isEmitPending; read checks that
         if (charsString == null) {
+        	charPosTracker = reader.pos();
             charsString = str;
         }
         else {
             if (charsBuilder.length() == 0) { // switching to string builder as more than one emit before read
                 charsBuilder.append(charsString);
+                
             }
             charsBuilder.append(str);
+        	charPosTracker = reader.pos();
         }
     }
 
@@ -189,27 +199,33 @@ final class Tokeniser {
 
     Token.Tag createTagPending(boolean start) {
         tagPending = start ? startPending.reset() : endPending.reset();
+        tagPending.startPosition = start ? reader.pos() - 1 : reader.pos() - 2;
         return tagPending;
     }
 
     void emitTagPending() {
         tagPending.finaliseTag();
+        tagPending.endPosition = reader.pos();
         emit(tagPending);
     }
 
     void createCommentPending() {
         commentPending.reset();
+        commentPending.startPosition = reader.pos() - 4;
     }
 
     void emitCommentPending() {
+        commentPending.endPosition = reader.pos();
         emit(commentPending);
     }
 
     void createDoctypePending() {
         doctypePending.reset();
+        doctypePending.startPosition = reader.pos() - 10;
     }
 
     void emitDoctypePending() {
+        doctypePending.endPosition = reader.pos();
         emit(doctypePending);
     }
 

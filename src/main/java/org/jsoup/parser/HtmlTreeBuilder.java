@@ -173,6 +173,8 @@ public class HtmlTreeBuilder extends TreeBuilder {
         // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
         if (startTag.isSelfClosing()) {
             Element el = insertEmpty(startTag);
+            el.startPosition = startTag.startPosition;
+            el.endPosition = startTag.endPosition;
             stack.add(el);
             tokeniser.transition(TokeniserState.Data); // handles <script />, otherwise needs breakout steps from script data
             tokeniser.emit(emptyEnd.reset().name(el.tagName()));  // ensure we get out of whatever state we are in. emitted for yielded processing
@@ -180,6 +182,7 @@ public class HtmlTreeBuilder extends TreeBuilder {
         }
         
         Element el = new Element(Tag.valueOf(startTag.name()), baseUri, startTag.attributes);
+        el.startPosition = startTag.startPosition;
         insert(el);
         return el;
     }
@@ -198,6 +201,8 @@ public class HtmlTreeBuilder extends TreeBuilder {
     Element insertEmpty(Token.StartTag startTag) {
         Tag tag = Tag.valueOf(startTag.name());
         Element el = new Element(tag, baseUri, startTag.attributes);
+        el.startPosition = startTag.startPosition;
+        el.endPosition = startTag.endPosition;
         insertNode(el);
         if (startTag.isSelfClosing()) {
             if (tag.isKnownTag()) {
@@ -214,6 +219,7 @@ public class HtmlTreeBuilder extends TreeBuilder {
     FormElement insertForm(Token.StartTag startTag, boolean onStack) {
         Tag tag = Tag.valueOf(startTag.name());
         FormElement el = new FormElement(tag, baseUri, startTag.attributes);
+        el.startPosition = startTag.startPosition;
         setFormElement(el);
         insertNode(el);
         if (onStack)
@@ -223,6 +229,8 @@ public class HtmlTreeBuilder extends TreeBuilder {
 
     void insert(Token.Comment commentToken) {
         Comment comment = new Comment(commentToken.getData(), baseUri);
+        comment.startPosition = commentToken.startPosition;
+        comment.endPosition = commentToken.endPosition;
         insertNode(comment);
     }
 
@@ -234,6 +242,9 @@ public class HtmlTreeBuilder extends TreeBuilder {
             node = new DataNode(characterToken.getData(), baseUri);
         else
             node = new TextNode(characterToken.getData(), baseUri);
+
+        node.startPosition = characterToken.startPosition;
+        node.endPosition = characterToken.endPosition;
         currentElement().appendChild(node); // doesn't use insertNode, because we don't foster these; and will always have a stack.
     }
 
@@ -255,6 +266,16 @@ public class HtmlTreeBuilder extends TreeBuilder {
 
     Element pop() {
         int size = stack.size();
+        return stack.remove(size-1);
+    }
+    
+    /*
+     * A pop method that sets the end position of the element to be popped off
+     * Thijs Vogels 2015
+     */
+    Element pop(int endPosition) {
+        int size = stack.size();
+    	stack.get(size-1).endPosition = endPosition;
         return stack.remove(size-1);
     }
 
@@ -310,6 +331,25 @@ public class HtmlTreeBuilder extends TreeBuilder {
         }
     }
 
+    void popStackToClose(String elName, int endPosition) {
+        for (int pos = stack.size() -1; pos >= 0; pos--) {
+            Element next = stack.get(pos);
+            next.endPosition = endPosition;
+            stack.remove(pos);
+            if (next.nodeName().equals(elName))
+                break;
+        }
+    }
+
+    void popStackToClose(int endPosition, String... elNames) {
+        for (int pos = stack.size() -1; pos >= 0; pos--) {
+            Element next = stack.get(pos);
+            next.endPosition = endPosition;
+            stack.remove(pos);
+            if (StringUtil.in(next.nodeName(), elNames))
+                break;
+        }
+    }
     void popStackToClose(String... elNames) {
         for (int pos = stack.size() -1; pos >= 0; pos--) {
             Element next = stack.get(pos);
@@ -319,6 +359,16 @@ public class HtmlTreeBuilder extends TreeBuilder {
         }
     }
 
+    void popStackToBefore(String elName, int endPosition) {
+        for (int pos = stack.size() -1; pos >= 0; pos--) {
+            Element next = stack.get(pos);
+            if (next.nodeName().equals(elName)) {
+                break;
+            } else {
+                stack.remove(pos);
+            }
+        }
+    }
     void popStackToBefore(String elName) {
         for (int pos = stack.size() -1; pos >= 0; pos--) {
             Element next = stack.get(pos);

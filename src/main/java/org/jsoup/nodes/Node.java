@@ -25,6 +25,9 @@ public abstract class Node implements Cloneable {
     String baseUri;
     int siblingIndex;
 
+    public int startPosition = -1;
+    public int endPosition = -1;
+    
     /**
      Create a new Node.
      @param baseUri base URI
