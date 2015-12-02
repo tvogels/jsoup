@@ -49,6 +49,8 @@ abstract class TreeBuilder {
     protected void runParser() {
         while (true) {
             Token token = tokeniser.read();
+            System.out.print(token.tokenType() + " [" + token.startPosition + ", " + token.endPosition + "]\n");
+            
             process(token);
             token.reset();
 
@@ -76,10 +78,14 @@ abstract class TreeBuilder {
     }
 
     protected boolean processEndTag(String name) {
+    	Token t;
         if (currentToken == end) { // don't recycle an in-use token
-            return process(new Token.EndTag().name(name));
+            t = new Token.EndTag().name(name);
+        } else {
+        	t = end.reset().name(name);
         }
-        return process(end.reset().name(name));
+        t.endPosition = reader.pos();
+        return process(t);
     }
 
 

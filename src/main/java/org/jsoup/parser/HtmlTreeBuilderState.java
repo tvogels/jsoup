@@ -909,25 +909,29 @@ enum HtmlTreeBuilderState {
                         tb.error(this);
                         return false;
                     } else {
-                        tb.getPendingTableCharacters().add(c.getData());
+                    	// Thijs Vogels: These also need a start and end position
+                    	Token.Character nc = new Token.Character().data(c.getData());
+                    	nc.startPosition = c.startPosition;
+                    	nc.endPosition = c.endPosition;
+                        tb.getPendingTableCharacters().add(nc);
                     }
                     break;
                 default:
                     // todo - don't really like the way these table character data lists are built
                     if (tb.getPendingTableCharacters().size() > 0) {
-                        for (String character : tb.getPendingTableCharacters()) {
-                            if (!isWhitespace(character)) {
+                        for (Token.Character tok : tb.getPendingTableCharacters()) {
+                            if (!isWhitespace(tok.getData())) {
                                 // InTable anything else section:
                                 tb.error(this);
                                 if (StringUtil.in(tb.currentElement().nodeName(), "table", "tbody", "tfoot", "thead", "tr")) {
                                     tb.setFosterInserts(true);
-                                    tb.process(new Token.Character().data(character), InBody);
+                                    tb.process(tok, InBody);
                                     tb.setFosterInserts(false);
                                 } else {
-                                    tb.process(new Token.Character().data(character), InBody);
+                                    tb.process(tok, InBody);
                                 }
                             } else
-                                tb.insert(new Token.Character().data(character));
+                                tb.insert(tok);
                         }
                         tb.newPendingTableCharacters();
                     }
