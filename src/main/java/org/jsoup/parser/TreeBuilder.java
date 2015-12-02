@@ -49,7 +49,7 @@ abstract class TreeBuilder {
     protected void runParser() {
         while (true) {
             Token token = tokeniser.read();
-//            System.out.print(token.tokenType() + " [" + token.startPosition + ", " + token.endPosition + "]\n");
+            System.out.print(token.tokenType() + " [" + token.startPosition + ", " + token.endPosition + "]\n");
             
             process(token);
             token.reset();

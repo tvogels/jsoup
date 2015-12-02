@@ -946,7 +946,9 @@ enum TokeniserState {
             r.unconsume();
             Token.Comment comment = new Token.Comment();
             comment.bogus = true;
+            comment.startPosition = r.pos() - 2;
             comment.data.append(r.consumeTo('>'));
+            comment.endPosition = r.pos()+1;
             // todo: replace nullChar with replaceChar
             t.emit(comment);
             t.advanceTransition(Data);
