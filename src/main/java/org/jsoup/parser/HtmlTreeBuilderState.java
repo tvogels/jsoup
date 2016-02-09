@@ -186,7 +186,11 @@ enum HtmlTreeBuilderState {
 
         private boolean anythingElse(Token t, HtmlTreeBuilder tb) {
             tb.error(this);
-            tb.insert(new Token.Character().data(t.toString()));
+            // Thijs Vogels
+            Token.Character tok = new Token.Character().data(t.toString());
+            tok.startPosition = t.startPosition;
+            tok.endPosition = t.endPosition;
+            tb.insert(tok);
             return true;
         }
     },
